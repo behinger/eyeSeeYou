@@ -63,7 +63,8 @@ def main():
 
     print(f"Connected to {tracker}")
     print("Streaming eye data...")
-
+    last_lr, last_ud = None, None
+    last_time = time.time()
     try:
         while True:
             gaze = tracker.receive_gaze_datum()
@@ -74,15 +75,22 @@ def main():
             TR = map_value((gaze.eyelid_angle_top_right), -1.15, 1.05, 95, 5)
             BR = map_value((gaze.eyelid_angle_bottom_right), -1.15, 1.05, 90, 90) # NOT CALIBRATED
 
-            #set_eyelids(TL, BL, TR, 90)  # BR set to neutral for now
-            #print(BL, gaze.eyelid_angle_bottom_left)
-            set_eyelids(TL, BL, TR,  90)  # BR set to neutral for now
 
             # Map optical axis to servo angles
             lr_avg = map_value((norm(gaze.optical_axis_left_x) + norm(gaze.optical_axis_right_x)) / 2, -37.72, 44.73, 60, 120)
             ud_avg = map_value((norm(gaze.optical_axis_left_y) + norm(gaze.optical_axis_right_y)) / 2, -38.33, 36.94, 150, 70)
 
-            set_eye_position(lr_avg, ud_avg)
+            now = time.time()
+            if (last_lr is None or
+                abs(lr_avg - last_lr) > 1 or
+                abs(ud_avg - last_ud) > 1 or
+                (now - last_time) > 0.05):  # 50ms minimum update interval
+                print(TL,BL,TR,lr_avg,ud_avg)
+                set_eyelids(TL, BL, TR, 90)
+                time.sleep(0.01)
+                set_eye_position(lr_avg, ud_avg)
+                last_lr, last_ud = lr_avg, ud_avg
+                last_time = now
             time.sleep(0.1)
 
     except KeyboardInterrupt:
