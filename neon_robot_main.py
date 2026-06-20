@@ -42,15 +42,22 @@ def main():
 
     @device.task
     def set_eyelids(l_top, l_bottom, r_top, r_bottom):
+        wait_time = 0.02
         Servo(pin_id=12).write(max(min(l_top, servo_limits["TL"][1]), servo_limits["TL"][0]))
+        time.sleep(wait_time)
         Servo(pin_id=13).write(max(min(l_bottom, servo_limits["BL"][0]), servo_limits["BL"][1]))
+        time.sleep(wait_time)
         Servo(pin_id=14).write(max(min(r_top, servo_limits["TR"][0]), servo_limits["TR"][1]))
+        time.sleep(wait_time)
         Servo(pin_id=15).write(max(min(r_top, servo_limits["BR"][1]), servo_limits["BR"][0]))
+        time.sleep(wait_time)
 
     @device.task
     def set_eye_position(lr, ud):
         Servo(pin_id=10).write(max(min(lr, servo_limits["LR"][1]), servo_limits["LR"][0]))
+        time.sleep(0.02)
         Servo(pin_id=11).write(max(min(ud, servo_limits["UD"][1]), servo_limits["UD"][0]))
+        time.sleep(0.02)
 
     # Connect to eye tracker
     print("Looking for Pupil Labs device...")
@@ -91,7 +98,7 @@ def main():
                 set_eye_position(lr_avg, ud_avg)
                 last_lr, last_ud = lr_avg, ud_avg
                 last_time = now
-            time.sleep(0.1)
+            time.sleep(0.05)
 
     except KeyboardInterrupt:
         pass
