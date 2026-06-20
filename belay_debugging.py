@@ -4,6 +4,7 @@ import pyautogui
 from pynput import mouse
 import time
 import threading
+from collections import deque
 
 def map_value(value, in_min, in_max, out_min, out_max):
     return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
@@ -26,12 +27,17 @@ def main():
     device(
     """
     from lib.servo import Servo
+    from machine import Pin
+    mode_switch = Pin(7, Pin.IN, Pin.PULL_UP)
+    def get_mode(): return mode_switch.value()
     """
     )
     Servo = device.proxy("Servo")
+    get_mode = device.proxy("get_mode")
 
     @device.setup
     def setup_servolimits():
+        global servo_limits
         servo_limits = {
             "TL": (80, 175),
             "BL": (90, 10),
@@ -63,8 +69,6 @@ def main():
         Servo(pin_id=14).write(servo_limits["TR"][0])
         time.sleep(wait_time)
         Servo(pin_id=13).write(servo_limits["BL"][0])
-        #time.sleep(wait_time)
-        #Servo(pin_id=15).write(servo_limits["BR"][0])
         time.sleep(0.2)
         
         Servo(pin_id=12).write(servo_limits["TL"][1])
@@ -72,13 +76,10 @@ def main():
         Servo(pin_id=14).write(servo_limits["TR"][1])
         time.sleep(wait_time)
         Servo(pin_id=13).write(servo_limits["BL"][1])
-        #time.sleep(wait_time)
         time.sleep(0.01)
-        #Servo(pin_id=15).write(servo_limits["BR"][1])
 
     screen_width, screen_height = pyautogui.size()
-    last_lr, last_ud = None, None
-    last_time = time.time()
+    eye_buffer = deque()
 
     mouse_listener = mouse.Listener(on_click=on_click)
     mouse_listener.start()
@@ -89,14 +90,16 @@ def main():
             lr = map_value(x, 0, screen_width, 60, 120)
             ud = map_value(y, 0, screen_height, 150, 70)
 
-            now = time.time()
-            if (last_lr is None or
-                abs(lr - last_lr) > 1 or
-                abs(ud - last_ud) > 1 or
-                (now - last_time) > 0.05):
+            # Check if delay mode is active (0 = Closed/Connected to GND)
+            if get_mode() == 0:
+                eye_buffer.append((time.time(), lr, ud))
+                if eye_buffer and (time.time() - eye_buffer[0][0] >= 0.5):
+                    _, buffered_lr, buffered_ud = eye_buffer.popleft()
+                    set_eye_position(buffered_lr, buffered_ud)
+            else:
+                # Direct mode
+                eye_buffer.clear()
                 set_eye_position(lr, ud)
-                last_lr, last_ud = lr, ud
-                last_time = now
 
             if blink_requested:
                 blink()
